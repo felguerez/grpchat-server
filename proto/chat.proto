@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package chat;
+
+option go_package = "github.com/felguerez/grpchat/internal/chat;chat";
+
+service ChatService {
+  rpc SendMessage(MessageRequest) returns (MessageResponse);
+  rpc JoinChat(StreamingRequest) returns (stream StreamingResponse);
+}
+
+message MessageRequest {
+  string username = 1;
+  string content = 2;
+}
+
+message MessageResponse {
+  string status = 1;
+}
+
+message StreamingRequest {
+  string username = 1;
+}
+
+message StreamingResponse {
+  string username = 1;
+  string content = 2;
+}
