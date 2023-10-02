@@ -17,14 +17,14 @@ type AccessToken struct {
 	AccessToken  string `json:"accessToken,omitempty"`
 	RefreshToken string `json:"refreshToken,omitempty"`
 	TokenType    string `json:"tokenType,omitempty"`
-	Id           string `json:"id,omitempty"`
+	ID           string `json:"id,omitempty" dynamodbav:"ID"`
 }
 
 type Message struct {
 	UserID         string `json:"user_id"`
 	Content        string `json:"content"`
 	ConversationID int    `json:"conversation_id"`
-	Timestamp      int64  `json:"timestamp"` // You can use Unix timestamp for ordering
+	Timestamp      int64  `json:"timestamp"`
 }
 
 var ChatMessagesTable *string
@@ -45,20 +45,24 @@ func GetSpotifyAccessTokensTable() *string {
 	if SpotifyAccessTokensTable == nil {
 		SpotifyAccessTokensTable = aws.String(os.Getenv("SPOTIFY_ACCESS_TOKENS_TABLE"))
 		if *SpotifyAccessTokensTable == "" {
-			log.Fatalf("CHAT_MESSAGES_TABLE environment variable is not set")
+			log.Fatalf("SPOTIFY_ACCESS_TOKENS_TABLE environment variable is not set")
 		}
 	}
 	return SpotifyAccessTokensTable
 }
 
 func PutAccessToken(item AccessToken) {
+	if item.ID == "" {
+		log.Fatalf("ID field must not be empty")
+		return
+	}
 	av, err := dynamodbattribute.MarshalMap(item)
 	if err != nil {
 		log.Fatalf("Got error marshalling item: %s", err)
 	}
 	input := &dynamodb.PutItemInput{
 		Item:      av,
-		TableName: GetChatMessagesTable(),
+		TableName: GetSpotifyAccessTokensTable(),
 	}
 	_, err = Client().PutItem(input)
 	if err != nil {
@@ -69,7 +73,7 @@ func PutAccessToken(item AccessToken) {
 
 func GetAccessToken(key string) (*AccessToken, error) {
 	input := &dynamodb.GetItemInput{
-		TableName: GetChatMessagesTable(),
+		TableName: GetSpotifyAccessTokensTable(),
 		Key: map[string]*dynamodb.AttributeValue{
 			"id": {
 				S: aws.String(key),
@@ -104,7 +108,6 @@ func Client() *dynamodb.DynamoDB {
 
 func PutMessage(msg Message) error {
 	svc := Client()
-	// Marshal the Message struct into an AWS attribute value map
 	av, err := dynamodbattribute.MarshalMap(msg)
 	if err != nil {
 		return err

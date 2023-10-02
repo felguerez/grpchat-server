@@ -28,7 +28,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: token.RefreshToken,
 		TokenType:    token.TokenType,
 		ExpiresAt:    token.Expiry.Unix(),
-		Id:           "felguerez", // @TODO: need username?
+		ID:           "felguerez", // @TODO: need username?
 	}
 
 	// Save the token to DynamoDB

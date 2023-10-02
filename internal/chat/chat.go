@@ -13,15 +13,13 @@ type Server struct {
 }
 
 func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) (*chat.SendMessageResponse, error) {
-	fmt.Printf("Received username %s, content %s, conversation_id %d \n", req.UserId, req.Content, req.ConversationId)
-	// Create a Message struct from the received data
 	message := db.Message{ // Replace with the actual struct definition
 		UserID:         req.UserId,
 		Content:        req.Content,
 		ConversationID: 420,
 		Timestamp:      time.Now().Unix(),
 	}
-	fmt.Println("Message:")
+	fmt.Println("Received Message:")
 	fmt.Println(message)
 	err := db.PutMessage(message)
 	if err != nil {
