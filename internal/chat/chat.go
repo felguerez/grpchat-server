@@ -3,18 +3,36 @@ package chat
 import (
 	"context"
 	"fmt"
+	"github.com/felguerez/grpchat/internal/db"
 	"github.com/felguerez/grpchat/proto"
+	"time"
 )
 
 type Server struct {
 	chat.UnimplementedChatServiceServer
 }
 
-func (s *Server) SendMessage(ctx context.Context, req *chat.MessageRequest) (*chat.MessageResponse, error) {
-	fmt.Printf("Received username %s, content %s\n", req.Username, req.Content)
-	return &chat.MessageResponse{Status: "Success"}, nil
+func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) (*chat.SendMessageResponse, error) {
+	fmt.Printf("Received username %s, content %s, conversation_id %d \n", req.UserId, req.Content, req.ConversationId)
+	// Create a Message struct from the received data
+	message := db.Message{ // Replace with the actual struct definition
+		UserID:         req.UserId,
+		Content:        req.Content,
+		ConversationID: 420,
+		Timestamp:      time.Now().Unix(),
+	}
+	fmt.Println("Message:")
+	fmt.Println(message)
+	err := db.PutMessage(message)
+	if err != nil {
+		fmt.Println("damn")
+		fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
+		return nil, err
+	}
+
+	return &chat.SendMessageResponse{Status: "Success"}, nil
 }
 
-func (s *Server) JoinChat(req *chat.StreamingRequest, stream chat.ChatService_JoinChatServer) error {
+func (s *Server) JoinConversation(req *chat.JoinConversationRequest, stream chat.ChatService_JoinConversationServer) error {
 	return nil
 }

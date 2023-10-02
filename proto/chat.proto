@@ -4,25 +4,49 @@ package chat;
 
 option go_package = "github.com/felguerez/grpchat/internal/chat;chat";
 
+// ChatService provides methods for chat interactions.
 service ChatService {
-  rpc SendMessage(MessageRequest) returns (MessageResponse);
-  rpc JoinChat(StreamingRequest) returns (stream StreamingResponse);
+  // SendMessage sends a chat message to a conversation.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  // CreateConversation creates a new chat room.
+  rpc CreateConversation(CreateConversationRequest) returns (CreateConversationResponse);
+
+  // JoinConversation joins a user to a chat room and streams messages.
+  rpc JoinConversation(JoinConversationRequest) returns (stream JoinConversationResponse);
 }
 
-message MessageRequest {
-  string username = 1;
-  string content = 2;
+// Request to send a message.
+message SendMessageRequest {
+  string user_id = 1;  // ID of the user sending the message.
+  string content = 2;  // Content of the message.
+  int32 conversation_id = 3;   // ID of the conversation to which the message is sent.
 }
 
-message MessageResponse {
-  string status = 1;
+// Response after sending a message.
+message SendMessageResponse {
+  string status = 1;  // Status of the message send operation.
 }
 
-message StreamingRequest {
-  string username = 1;
+// Request to join a conversation.
+message JoinConversationRequest {
+  int32 conversation_id = 1;  // ID of the conversation to join.
+  string user_id = 2;         // ID of the user joining the conversation.
 }
 
-message StreamingResponse {
-  string username = 1;
-  string content = 2;
+// Response after joining a conversation.
+message JoinConversationResponse {
+  int32 conversation_id = 1;  // ID of the conversation.
+  string user_id = 2;         // ID of the user in the conversation.
+}
+
+// Request to create a new conversation.
+message CreateConversationRequest {
+  string name = 1;      // Name of the new conversation.
+  string owner_id = 2;  // ID of the user who will own the conversation.
+}
+
+// Response after creating a new conversation.
+message CreateConversationResponse {
+  int32 conversation_id = 1;  // ID of the newly created conversation.
 }

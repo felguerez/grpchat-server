@@ -2,15 +2,24 @@ package main
 
 import (
 	"fmt"
+	"github.com/felguerez/grpchat/internal/auth"
 	"github.com/felguerez/grpchat/internal/chat"
+	"github.com/felguerez/grpchat/internal/handlers"
 	chatpb "github.com/felguerez/grpchat/proto"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
+	"net/http"
+	"os"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	port := "50051"
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -19,7 +28,9 @@ func main() {
 	s := grpc.NewServer()
 	chatpb.RegisterChatServiceServer(s, &chat.Server{})
 	reflection.Register(s)
-
+	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
+	http.HandleFunc("/login", handlers.HandleLogin)
+	http.HandleFunc("/callback", handlers.HandleCallback)
 	log.Println(fmt.Sprintf("Server is running on port :%s", port))
 
 	if err := s.Serve(lis); err != nil {
