@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"github.com/felguerez/grpchat/internal/auth"
 	"github.com/felguerez/grpchat/internal/db"
 	"golang.org/x/oauth2"
@@ -9,6 +10,7 @@ import (
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	spotifyOauthConfig := auth.GetSpotifyOauthConfig()
+	fmt.Println("GET /login")
 	authURL := spotifyOauthConfig.AuthCodeURL("your-state", oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusFound)
 }

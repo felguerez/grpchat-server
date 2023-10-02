@@ -20,20 +20,32 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	port := "50051"
-	lis, err := net.Listen("tcp", ":"+port)
+
+	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
+
+	http.HandleFunc("/login", handlers.HandleLogin)
+	http.HandleFunc("/callback", handlers.HandleCallback)
+
+	httpPort := "8080"
+	go func() {
+		log.Println(fmt.Sprintf("HTTP server is running on port :%s", httpPort))
+		if err := http.ListenAndServe(":"+httpPort, nil); err != nil {
+			log.Fatalf("Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	grpcServer := grpc.NewServer()
+	chatpb.RegisterChatServiceServer(grpcServer, &chat.Server{})
+	reflection.Register(grpcServer)
+
+	grpcPort := "50051"
+	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
-	chatpb.RegisterChatServiceServer(s, &chat.Server{})
-	reflection.Register(s)
-	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
-	http.HandleFunc("/login", handlers.HandleLogin)
-	http.HandleFunc("/callback", handlers.HandleCallback)
-	log.Println(fmt.Sprintf("Server is running on port :%s", port))
+	log.Println(fmt.Sprintf("gRPC server is running on port :%s", grpcPort))
 
-	if err := s.Serve(lis); err != nil {
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }

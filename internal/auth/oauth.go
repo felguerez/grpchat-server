@@ -1,6 +1,8 @@
 package auth
 
-import "golang.org/x/oauth2"
+import (
+	"golang.org/x/oauth2"
+)
 
 var spotifyOauthConfig *oauth2.Config
 

@@ -28,6 +28,7 @@ type Message struct {
 }
 
 var ChatMessagesTable *string
+var SpotifyAccessTokensTable *string
 var svc *dynamodb.DynamoDB
 
 func GetChatMessagesTable() *string {
@@ -38,6 +39,16 @@ func GetChatMessagesTable() *string {
 		}
 	}
 	return ChatMessagesTable
+}
+
+func GetSpotifyAccessTokensTable() *string {
+	if SpotifyAccessTokensTable == nil {
+		SpotifyAccessTokensTable = aws.String(os.Getenv("SPOTIFY_ACCESS_TOKENS_TABLE"))
+		if *SpotifyAccessTokensTable == "" {
+			log.Fatalf("CHAT_MESSAGES_TABLE environment variable is not set")
+		}
+	}
+	return SpotifyAccessTokensTable
 }
 
 func PutAccessToken(item AccessToken) {
