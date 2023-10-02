@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/felguerez/grpchat/internal/auth"
 	"github.com/felguerez/grpchat/internal/db"
+	"github.com/felguerez/grpchat/internal/spotify"
 	"golang.org/x/oauth2"
+	"log"
 	"net/http"
 )
 
@@ -23,12 +25,16 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Handle error
 	}
+	id, err := spotify.GetSpotifyUserID(token.AccessToken)
+	if err != nil {
+		log.Fatalf("Could not get spotify user id %s", err)
+	}
 	item := db.AccessToken{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		TokenType:    token.TokenType,
 		ExpiresAt:    token.Expiry.Unix(),
-		ID:           "felguerez", // @TODO: need username?
+		ID:           id,
 	}
 
 	// Save the token to DynamoDB

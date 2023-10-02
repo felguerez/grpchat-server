@@ -113,14 +113,11 @@ func PutMessage(msg Message) error {
 		return err
 	}
 
-	// Create the input for the PutItem operation
-	fmt.Println("Table Name:", os.Getenv("CHAT_MESSAGES_TABLE"))
 	input := &dynamodb.PutItemInput{
 		TableName: GetChatMessagesTable(),
 		Item:      av,
 	}
 
-	// Put the item into the DynamoDB table
 	_, err = svc.PutItem(input)
 	return err
 }
