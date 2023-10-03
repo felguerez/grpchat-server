@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"golang.org/x/oauth2"
 )
 
@@ -17,6 +18,17 @@ func InitializeSpotifyOauthConfig(clientID, clientSecret, redirectURL string, sc
 			TokenURL: "https://accounts.spotify.com/api/token",
 		},
 	}
+}
+
+func RefreshAccessToken(refreshToken string) (*oauth2.Token, error) {
+	ctx := context.Background()
+	token := &oauth2.Token{RefreshToken: refreshToken}
+	ts := spotifyOauthConfig.TokenSource(ctx, token)
+	newToken, err := ts.Token()
+	if err != nil {
+		return nil, err
+	}
+	return newToken, nil
 }
 
 func GetSpotifyOauthConfig() *oauth2.Config {

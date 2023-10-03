@@ -22,9 +22,12 @@ func main() {
 	}
 
 	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/messages", handlers.HandleGetAllMessages) // @TODO: send via grpc
 
-	http.HandleFunc("/login", handlers.HandleLogin)
-	http.HandleFunc("/callback", handlers.HandleCallback)
+	http.Handle("/api/", http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux)))
+	http.Handle("/login", http.HandlerFunc(handlers.HandleLogin))
+	http.Handle("/callback", http.HandlerFunc(handlers.HandleCallback))
 
 	httpPort := "8080"
 	go func() {

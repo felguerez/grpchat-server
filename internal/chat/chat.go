@@ -16,7 +16,7 @@ func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) 
 	message := db.Message{ // Replace with the actual struct definition
 		UserID:         req.UserId,
 		Content:        req.Content,
-		ConversationID: 420,
+		ConversationID: req.ConversationId,
 		Timestamp:      time.Now().Unix(),
 	}
 	fmt.Println("Received Message:")
