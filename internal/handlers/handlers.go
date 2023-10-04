@@ -5,59 +5,66 @@ import (
 	"github.com/felguerez/grpchat/internal/auth"
 	"github.com/felguerez/grpchat/internal/db"
 	"github.com/felguerez/grpchat/internal/spotify"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 	"time"
 )
 
-func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	spotifyOauthConfig := auth.GetSpotifyOauthConfig()
-	fmt.Println("GET /login")
-	authURL := spotifyOauthConfig.AuthCodeURL("your-state", oauth2.AccessTypeOffline)
-	http.Redirect(w, r, authURL, http.StatusFound)
+func HandleLogin(logger *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		spotifyOauthConfig := auth.GetSpotifyOauthConfig()
+		logger.Info("received a request", zap.String("method", r.Method), zap.String("url", r.URL.String()))
+		authURL := spotifyOauthConfig.AuthCodeURL("your-state", oauth2.AccessTypeOffline)
+		http.Redirect(w, r, authURL, http.StatusFound)
+	}
 }
 
-func HandleCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	ctx := r.Context()
-	spotifyOauthConfig := auth.GetSpotifyOauthConfig()
-	token, err := spotifyOauthConfig.Exchange(ctx, code)
-	if err != nil {
-		// Handle error
-	}
-	userID, err := spotify.GetSpotifyUserID(token.AccessToken)
-	if err != nil {
-		log.Fatalf("Could not get spotify user userID %s", err)
-	}
-	item := db.AccessToken{
-		AccessToken:  token.AccessToken,
-		RefreshToken: token.RefreshToken,
-		TokenType:    token.TokenType,
-		ExpiresAt:    token.Expiry.Unix(),
-		ID:           userID,
-	}
+func HandleCallback(logger *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		code := r.URL.Query().Get("code")
+		ctx := r.Context()
+		spotifyOauthConfig := auth.GetSpotifyOauthConfig()
+		token, err := spotifyOauthConfig.Exchange(ctx, code)
+		if err != nil {
+			// Handle error
+		}
+		userID, err := spotify.GetSpotifyUserID(token.AccessToken)
+		if err != nil {
+			logger.Error("Could not get spotify user userID")
+		}
+		item := db.AccessToken{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			TokenType:    token.TokenType,
+			ExpiresAt:    token.Expiry.Unix(),
+			ID:           userID,
+		}
 
-	sessionID, err := auth.GenerateSessionID()
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	session := db.Session{
-		SessionID: sessionID,
-		UserID:    userID,
-		ExpiresAt: time.Now().Add(24 * time.Hour).Unix(), // 24 hours from now
-	}
+		sessionID, err := auth.GenerateSessionID()
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		session := db.Session{
+			SessionID: sessionID,
+			UserID:    userID,
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(), // 24 hours from now
+		}
 
-	if err := db.PutSession(session); err != nil {
-		log.Fatalf("Could not put new session: %s", err)
-		return
+		if err := db.PutSession(session); err != nil {
+			log.Fatalf("Could not put new session: %s", err)
+			return
+		}
+
+		auth.SetSessionCookie(w, sessionID)
+
+		db.PutAccessToken(item)
+		fmt.Sprintf("session ID is %s", sessionID)
+		redirectURL := fmt.Sprintf("http://localhost:3001/home?session_id=%s", sessionID)
+		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 	}
-
-	auth.SetSessionCookie(w, sessionID)
-
-	db.PutAccessToken(item)
-	http.Redirect(w, r, "http://localhost:3001/home", http.StatusSeeOther)
 }
 
 func RequireAuth(next http.Handler) http.Handler {

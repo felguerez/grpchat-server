@@ -44,9 +44,27 @@ message JoinConversationResponse {
 message CreateConversationRequest {
   string name = 1;      // Name of the new conversation.
   string owner_id = 2;  // ID of the user who will own the conversation.
+  repeated string members = 3;
 }
 
 // Response after creating a new conversation.
 message CreateConversationResponse {
-  int32 conversation_id = 1;  // ID of the newly created conversation.
+  string conversation_id = 1;  // ID of the newly created conversation.
+}
+
+message Conversation {
+  string id = 1;
+  string name = 2;
+  string owner_id = 3;
+  repeated string members = 4;
+}
+
+message GetConversationsRequest {
+  string user_id = 1;  // Optional: ID of the user whose conversations to retrieve.
+  int32 limit = 2;     // Optional: Maximum number of conversations to return.
+  string sort_by = 3;  // Optional: Field by which to sort the conversations. Could be "CreatedAt" or "UpdatedAt".
+}
+
+message GetConversationsResponse {
+  repeated Conversation conversations = 1;
 }

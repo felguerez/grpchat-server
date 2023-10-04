@@ -7,6 +7,7 @@ import (
 	"github.com/felguerez/grpchat/internal/handlers"
 	chatpb "github.com/felguerez/grpchat/proto"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"log"
@@ -20,18 +21,20 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
 
 	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/messages", handlers.HandleGetAllMessages) // @TODO: send via grpc
 
 	http.Handle("/api/", http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux)))
-	http.Handle("/login", http.HandlerFunc(handlers.HandleLogin))
-	http.Handle("/callback", http.HandlerFunc(handlers.HandleCallback))
+	http.Handle("/login", handlers.HandleLogin(logger))
+	http.Handle("/callback", handlers.HandleCallback(logger))
 
 	httpPort := "8080"
 	go func() {
-		log.Println(fmt.Sprintf("HTTP server is running on port :%s", httpPort))
+		logger.Info(fmt.Sprintf("HTTP server is running on port :%s", httpPort))
 		if err := http.ListenAndServe(":"+httpPort, nil); err != nil {
 			log.Fatalf("Failed to start HTTP server: %v", err)
 		}
