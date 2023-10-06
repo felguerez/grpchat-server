@@ -6,6 +6,7 @@ import (
 	"github.com/felguerez/grpchat/internal/db"
 	"github.com/felguerez/grpchat/proto"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -32,44 +33,116 @@ func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) 
 	return &chat.SendMessageResponse{Status: "Success"}, nil
 }
 
-func (s *Server) JoinConversation(req *chat.JoinConversationRequest, stream chat.ChatService_JoinConversationServer) error {
-	return nil
+func (s *Server) JoinConversation(ctx context.Context, req *chat.JoinConversationRequest) (*chat.JoinConversationResponse, error) {
+	if req.UserId == "" || req.ConversationId == "" {
+		return nil, fmt.Errorf("UserId and ConversationId cannot be empty")
+	}
+
+	err := db.AddMemberToConversation(req.ConversationId, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &chat.JoinConversationResponse{Status: "Success"}, nil
 }
 
 func (s *Server) CreateConversation(ctx context.Context, req *chat.CreateConversationRequest) (*chat.CreateConversationResponse, error) {
+	logger, _ := zap.NewProduction()
+	logger.Info("Received CreateConversation request", zap.Any("request", req))
+	currentTime := time.Now().Unix()
 	conversation := db.Conversation{
 		ID:        uuid.New().String(),
 		Name:      req.Name,
-		CreatedAt: time.Now().Unix(),
-		UpdatedAt: time.Now().Unix(),
+		CreatedAt: currentTime,
+		UpdatedAt: currentTime,
 		CreatedBy: req.OwnerId,
+		Members:   []string{req.OwnerId},
 	}
+
 	fmt.Println("Received Conversation:")
 	fmt.Println(conversation)
 	err := db.PutConversation(conversation)
 	if err != nil {
 		fmt.Println("Error occurred:")
-		fmt.Sprintf("Error when putting conversation: %s", err.Error())
+		fmt.Println(fmt.Sprintf("Error when putting conversation: %s", err.Error()))
 		return nil, err
 	}
 	return &chat.CreateConversationResponse{ConversationId: conversation.ID}, nil
 }
-func (s *Server) GetConversations(ctx context.Context, req *chat.GetConversationsRequest) (*chat.GetConversationsResponse, error) {
-	// Validate request (e.g., check that limit is positive, sort_by is a valid field, etc.)
+func (s *Server) GetConversation(ctx context.Context, req *chat.GetConversationRequest) (*chat.GetConversationResponse, error) {
+	if req.ConversationId == "" {
+		return nil, fmt.Errorf("req.ConversationId cannot be empty")
+	}
 
-	// Retrieve conversations from the database.
-	// This is a placeholder; you'll need to implement db.GetConversations based on your database schema.
-	limit := int64(req.Limit)
-	conversations, err := db.GetConversations(req.UserId, limit, req.SortBy)
+	conversation, messages, err := db.GetConversationWithMessages(req.ConversationId)
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert conversations to the format expected by the proto message.
-	// This is a placeholder; you'll need to implement the conversion based on your actual data structures.
+	protoConversation := convertToProtoConversation(conversation)
+	protoMessages := convertToProtoMessages(messages) // You'll need to implement this function
+
+	return &chat.GetConversationResponse{
+		Conversation: protoConversation,
+		Messages:     protoMessages,
+	}, nil
+}
+
+// Convert db.Message to chat.Message
+func convertToProtoMessages(messages []db.Message) []*chat.Message {
+	var protoMessages []*chat.Message
+	for _, msg := range messages {
+		protoMsg := &chat.Message{
+			UserId:         msg.UserID,
+			Content:        msg.Content,
+			ConversationId: msg.ConversationID,
+		}
+		protoMessages = append(protoMessages, protoMsg)
+	}
+	return protoMessages
+}
+
+func convertToProtoConversation(conversation db.Conversation) *chat.Conversation {
+	return &chat.Conversation{
+		Id:      conversation.ID,
+		Name:    conversation.Name,
+		OwnerId: conversation.CreatedBy,
+		Members: conversation.Members,
+	}
+}
+
+func (s *Server) GetConversations(ctx context.Context, req *chat.GetConversationsRequest) (*chat.GetConversationsResponse, error) {
+	if req.Limit == 0 {
+		req.Limit = 100
+	}
+	if req.Limit < 0 {
+		return nil, fmt.Errorf("req.Limit should be a positive integer")
+	}
+
+	if req.UserId == "" {
+		return nil, fmt.Errorf("req.UserID cannot be empty")
+	}
+
+	conversations, err := db.GetConversations(req.UserId, req.Limit, req.SortBy)
+	if err != nil {
+		return nil, err
+	}
+
 	protoConversations := convertToProtoConversations(conversations)
 
 	return &chat.GetConversationsResponse{
 		Conversations: protoConversations,
 	}, nil
+}
+func convertToProtoConversations(conversations []db.Conversation) []*chat.Conversation {
+	var protoConversations []*chat.Conversation
+	for _, c := range conversations {
+		protoConversations = append(protoConversations, &chat.Conversation{
+			Id:      c.ID,
+			Name:    c.Name,
+			OwnerId: c.CreatedBy,
+			Members: c.Members,
+		})
+	}
+	return protoConversations
 }

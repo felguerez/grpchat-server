@@ -16,13 +16,60 @@ type Conversation struct {
 	Members   []string `json:"members" dynamodbav:"Members"`
 }
 
+type Member struct {
+	ID string
+}
+
 var ConversationsTable = "Conversations"
 
-func GetConversations(userID string, limit int64, sortBy string) ([]Conversation, error) {
+func GetConversation(conversationID string) (Conversation, error) {
+	svc := Client()
+	input := &dynamodb.GetItemInput{
+		TableName: aws.String(ConversationsTable),
+		Key: map[string]*dynamodb.AttributeValue{
+			"ID": {
+				S: aws.String(conversationID),
+			},
+		},
+	}
+
+	result, err := svc.GetItem(input)
+	if err != nil {
+		return Conversation{}, err
+	}
+
+	if result.Item == nil {
+		return Conversation{}, nil // Or return an error if you prefer
+	}
+
+	var conversation Conversation
+	err = dynamodbattribute.UnmarshalMap(result.Item, &conversation)
+	if err != nil {
+		return Conversation{}, err
+	}
+
+	return conversation, nil
+}
+
+func GetConversationWithMessages(conversationID string) (Conversation, []Message, error) {
+	conversation, err := GetConversation(conversationID)
+	if err != nil {
+		return Conversation{}, nil, err
+	}
+
+	messages, err := GetMessagesForConversation(conversationID)
+	if err != nil {
+		return Conversation{}, nil, err
+	}
+
+	return conversation, messages, nil
+}
+
+func GetConversations(userID string, limit int32, sortBy string) ([]Conversation, error) {
 	svc := Client()
 	input := &dynamodb.ScanInput{
 		TableName: aws.String("Conversations"),
-		Limit:     aws.Int64(limit),
+		Limit:     aws.Int64(int64(limit)),
 	}
 
 	if sortBy != "" {
@@ -72,7 +119,7 @@ func PutConversation(conversation Conversation) error {
 	}
 
 	input := &dynamodb.PutItemInput{
-		TableName: aws.String("Conversations"),
+		TableName: aws.String(ConversationsTable),
 		Item:      av,
 	}
 
@@ -81,4 +128,26 @@ func PutConversation(conversation Conversation) error {
 		return err
 	}
 	return nil
+}
+
+func AddMemberToConversation(conversationID, userID string) error {
+	svc := Client()
+	input := &dynamodb.UpdateItemInput{
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":m": {
+				S: aws.String(userID),
+			},
+		},
+		TableName: aws.String(ConversationsTable),
+		Key: map[string]*dynamodb.AttributeValue{
+			"ID": {
+				S: aws.String(conversationID),
+			},
+		},
+		ReturnValues:     aws.String("UPDATED_NEW"),
+		UpdateExpression: aws.String("ADD Members :m"),
+	}
+
+	_, err := svc.UpdateItem(input)
+	return err
 }

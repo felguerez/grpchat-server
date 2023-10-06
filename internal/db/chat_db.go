@@ -1,6 +1,7 @@
 package db
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
@@ -8,7 +9,7 @@ import (
 type Message struct {
 	UserID         string `json:"user_id" dynamodbav:"UserID"`
 	Content        string `json:"content" dynamodbav:"Content"`
-	ConversationID int32  `json:"conversation_id" dynamodbav:"ConversationID"`
+	ConversationID string `json:"conversation_id" dynamodbav:"ConversationID"`
 	Timestamp      int64  `json:"timestamp" dynamodbav:"Timestamp"`
 }
 
@@ -46,6 +47,39 @@ func GetAllMessages() ([]Message, error) {
 		var message Message
 		err := dynamodbattribute.UnmarshalMap(item, &message)
 		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+
+	return messages, nil
+}
+
+func GetMessagesForConversation(conversationID string) ([]Message, error) {
+	svc := Client()
+	input := &dynamodb.QueryInput{
+		TableName: aws.String(ChatMessagesTable),
+		KeyConditions: map[string]*dynamodb.Condition{
+			"ConversationID": {
+				ComparisonOperator: aws.String("EQ"),
+				AttributeValueList: []*dynamodb.AttributeValue{
+					{
+						S: aws.String(conversationID),
+					},
+				},
+			},
+		},
+	}
+
+	result, err := svc.Query(input)
+	if err != nil {
+		return nil, err
+	}
+
+	var messages []Message
+	for _, i := range result.Items {
+		message := Message{}
+		if err := dynamodbattribute.UnmarshalMap(i, &message); err != nil {
 			return nil, err
 		}
 		messages = append(messages, message)

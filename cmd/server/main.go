@@ -16,6 +16,18 @@ import (
 	"os"
 )
 
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger, _ := zap.NewProduction()
+		defer logger.Sync()
+
+		logger.Info("Incoming request",
+			zap.String("method", r.Method),
+			zap.String("url", r.URL.String()),
+		)
+		next.ServeHTTP(w, r)
+	})
+}
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -28,9 +40,9 @@ func main() {
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/messages", handlers.HandleGetAllMessages) // @TODO: send via grpc
 
-	http.Handle("/api/", http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux)))
-	http.Handle("/login", handlers.HandleLogin(logger))
-	http.Handle("/callback", handlers.HandleCallback(logger))
+	http.Handle("/api/", LoggingMiddleware(http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux))))
+	http.Handle("/login", LoggingMiddleware(handlers.HandleLogin(logger)))
+	http.Handle("/callback", LoggingMiddleware(handlers.HandleCallback(logger)))
 
 	httpPort := "8080"
 	go func() {

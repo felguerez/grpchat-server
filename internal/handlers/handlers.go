@@ -62,8 +62,10 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 
 		db.PutAccessToken(item)
 		fmt.Sprintf("session ID is %s", sessionID)
-		redirectURL := fmt.Sprintf("http://localhost:3001/home?session_id=%s", sessionID)
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		redirectURL := fmt.Sprintf("http://localhost:3000/")
+		w.Header().Set("sessionId", sessionID)
+		w.Header().Set("Location", redirectURL)
+		w.WriteHeader(http.StatusSeeOther)
 	}
 }
 
