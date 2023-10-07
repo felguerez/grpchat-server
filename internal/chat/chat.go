@@ -7,6 +7,7 @@ import (
 	"github.com/felguerez/grpchat/proto"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"io"
 	"time"
 )
 
@@ -145,4 +146,40 @@ func convertToProtoConversations(conversations []db.Conversation) []*chat.Conver
 		})
 	}
 	return protoConversations
+}
+
+func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			// Client is done sending messages
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		message := db.Message{
+			UserID:         req.UserId,
+			Content:        req.Content,
+			ConversationID: req.ConversationId,
+			Timestamp:      time.Now().Unix(),
+		}
+		fmt.Println("Received Message:")
+		fmt.Println(message)
+		err = db.PutMessage(message)
+		if err != nil {
+			fmt.Println("damn")
+			fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
+			return err
+		}
+
+		// Send a message back to the client
+		if err := stream.Send(&chat.SendMessageRequest{
+			UserId:         "server",
+			Content:        "Acknowledgment for message received",
+			ConversationId: "",
+		}); err != nil {
+			return err
+		}
+	}
 }
