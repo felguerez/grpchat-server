@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/felguerez/grpchat/internal/db"
+	"github.com/felguerez/grpchat/internal/wschat"
 	"github.com/felguerez/grpchat/proto"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -164,7 +165,7 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 			ConversationID: req.ConversationId,
 			Timestamp:      time.Now().Unix(),
 		}
-		fmt.Println("Received Message:")
+		fmt.Println("Received Message from ChatStream:")
 		fmt.Println(message)
 		err = db.PutMessage(message)
 		if err != nil {
@@ -172,6 +173,8 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 			fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
 			return err
 		}
+		fmt.Println("okay, now we're gonna broadcast to websockets")
+		wschat.BroadcastMessageToWebSockets(message)
 
 		// Send a message back to the client
 		if err := stream.Send(&chat.SendMessageRequest{

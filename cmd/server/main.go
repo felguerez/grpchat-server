@@ -5,6 +5,7 @@ import (
 	"github.com/felguerez/grpchat/internal/auth"
 	"github.com/felguerez/grpchat/internal/chat"
 	"github.com/felguerez/grpchat/internal/handlers"
+	"github.com/felguerez/grpchat/internal/wschat"
 	chatpb "github.com/felguerez/grpchat/proto"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -43,6 +44,7 @@ func main() {
 	http.Handle("/api/", LoggingMiddleware(http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux))))
 	http.Handle("/login", LoggingMiddleware(handlers.HandleLogin(logger)))
 	http.Handle("/callback", LoggingMiddleware(handlers.HandleCallback(logger)))
+	http.HandleFunc("/api/conversations/", wschat.InitializeWebSocket())
 
 	httpPort := "8080"
 	go func() {
