@@ -7,7 +7,6 @@ import (
 	"github.com/felguerez/grpchat/internal/spotify"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,7 +28,9 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 		spotifyOauthConfig := auth.GetSpotifyOauthConfig()
 		token, err := spotifyOauthConfig.Exchange(ctx, code)
 		if err != nil {
-			// Handle error
+			logger.Error("Error exchanging Spotify code for token", zap.Error(err))
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
 		}
 		userID, err := spotify.GetSpotifyUserID(token.AccessToken)
 		if err != nil {
@@ -55,7 +56,7 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 		}
 
 		if err := db.PutSession(session); err != nil {
-			log.Fatalf("Could not put new session: %s", err)
+			logger.Fatal("Could not put new session", zap.Error(err))
 			return
 		}
 
@@ -64,9 +65,15 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 		db.PutAccessToken(item)
 		fmt.Sprintf("session ID is %s", sessionID)
 		clientURL := os.Getenv("CLIENT_URL")
+		if clientURL == "" {
+			logger.Error("CLIENT_URL not set in environment")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		u, err := url.Parse(clientURL)
 		if err != nil {
-			// Handle error
+			logger.Error("Could not parse CLIENT_URL", zap.Error(err))
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 		u.Path = "/api/authenticated"
