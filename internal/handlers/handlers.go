@@ -16,7 +16,6 @@ import (
 func HandleLogin(logger *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		spotifyOauthConfig := auth.GetSpotifyOauthConfig()
-		logger.Info("received a request", zap.String("method", r.Method), zap.String("url", r.URL.String()))
 		authURL := spotifyOauthConfig.AuthCodeURL("your-state", oauth2.AccessTypeOffline)
 		http.Redirect(w, r, authURL, http.StatusFound)
 	}
