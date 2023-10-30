@@ -9,6 +9,7 @@ import (
 	"golang.org/x/oauth2"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -62,7 +63,7 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 
 		db.PutAccessToken(item)
 		fmt.Sprintf("session ID is %s", sessionID)
-		redirectURL := fmt.Sprintf("http://localhost:3000/")
+		redirectURL := fmt.Sprintf(os.Getenv("CLIENT_URL"))
 		w.Header().Set("sessionId", sessionID)
 		w.Header().Set("Location", redirectURL)
 		w.WriteHeader(http.StatusSeeOther)
