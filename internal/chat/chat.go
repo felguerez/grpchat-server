@@ -173,7 +173,6 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 			fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
 			return err
 		}
-		fmt.Println("okay, now we're gonna broadcast to websockets")
 		wschat.BroadcastMessageToWebSockets(message)
 
 		// Send a message back to the client

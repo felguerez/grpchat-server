@@ -1,3 +1,5 @@
 .idea/
 *.pb.go
 .env
+main
+*/.DS_Store

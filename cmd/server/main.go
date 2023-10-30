@@ -30,6 +30,8 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 func main() {
+	dir, _ := os.Getwd()
+	fmt.Println("Current directory is:", dir)
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -37,10 +39,13 @@ func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
+	logger.Info(fmt.Sprintf("Callback URL is %s", os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL")))
+
 	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
 	apiMux := http.NewServeMux()
-	apiMux.HandleFunc("/messages", handlers.HandleGetAllMessages) // @TODO: send via grpc
+	apiMux.HandleFunc("/messages", handlers.HandleGetAllMessages) // @TODO: implement grpc endpoint for this data
 
+	http.HandleFunc("/", handlers.Root)
 	http.Handle("/api/", LoggingMiddleware(http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux))))
 	http.Handle("/login", LoggingMiddleware(handlers.HandleLogin(logger)))
 	http.Handle("/callback", LoggingMiddleware(handlers.HandleCallback(logger)))
@@ -63,7 +68,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Println(fmt.Sprintf("gRPC server is running on port :%s", grpcPort))
+	logger.Info(fmt.Sprintf("gRPC server is running on port :%s", grpcPort))
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
