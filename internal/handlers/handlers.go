@@ -62,7 +62,7 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 
 		db.PutAccessToken(item)
 		fmt.Sprintf("session ID is %s", sessionID)
-		redirectURL := fmt.Sprintf(os.Getenv("CLIENT_URL"))
+		redirectURL := fmt.Sprintf("%s/api/authenticated", os.Getenv("CLIENT_URL"))
 		logger.Info("We're going to redirect", zap.String("CLIENT_URL", redirectURL))
 		w.Header().Set("sessionId", sessionID)
 		w.Header().Set("Location", redirectURL)

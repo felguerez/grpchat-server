@@ -39,9 +39,6 @@ func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	logger.Info(fmt.Sprintf("Callback URL is %s", os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL")))
-	logger.Info(fmt.Sprintf("Client URL is %s", os.Getenv("CLIENT_URL")))
-
 	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/messages", handlers.HandleGetAllMessages) // @TODO: implement grpc endpoint for this data
