@@ -11,7 +11,7 @@ echo "Project directory is $PROJECT_ROOT_DIR"
 # login
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REPO
 
-cd $PROJECT_ROOT_DIR || ..
+cd "$PROJECT_ROOT_DIR" || ..
 
 # Build, tag, and push for grpchat-http service
 docker build -t $HTTP_SERVICE -f Dockerfile.http .
@@ -24,3 +24,6 @@ docker tag ${GRPC_SERVICE}:latest ${ECR_REPO}/${GRPC_SERVICE}:latest
 docker push ${ECR_REPO}/${GRPC_SERVICE}:latest
 
 echo "Deployment complete."
+
+aws ecs update-service --cluster $CLUSTER_NAME --service $HTTP_SERVICE --force-new-deployment
+aws ecs update-service --cluster $CLUSTER_NAME --service $GRPC_SERVICE --force-new-deployment
