@@ -9,6 +9,7 @@ import (
 	"golang.org/x/oauth2"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
@@ -62,11 +63,20 @@ func HandleCallback(logger *zap.Logger) http.HandlerFunc {
 
 		db.PutAccessToken(item)
 		fmt.Sprintf("session ID is %s", sessionID)
-		redirectURL := fmt.Sprintf("%s/api/authenticated", os.Getenv("CLIENT_URL"))
-		logger.Info("We're going to redirect", zap.String("CLIENT_URL", redirectURL))
-		w.Header().Set("sessionId", sessionID)
-		w.Header().Set("Location", redirectURL)
-		w.WriteHeader(http.StatusSeeOther)
+		clientURL := os.Getenv("CLIENT_URL")
+		u, err := url.Parse(clientURL)
+		if err != nil {
+			// Handle error
+			return
+		}
+		u.Path = "/api/authenticated"
+		q := u.Query()
+		q.Set("sessionId", sessionID)
+		u.RawQuery = q.Encode()
+
+		logger.Info("We're going to redirect", zap.String("CLIENT_URL", u.String()))
+		w.Header().Set("Location", u.String())
+		http.Redirect(w, r, u.String(), http.StatusFound)
 	}
 }
 
