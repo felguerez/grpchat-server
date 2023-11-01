@@ -29,15 +29,44 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// loadEnvFile loads the appropriate .env files based on the APP_ENV variable and logs the files used.
+func loadEnvFile(logger *zap.Logger) error {
+	var envFiles []string
+
+	if os.Getenv("APP_ENV") == "development" {
+		envFiles = append(envFiles, ".env", ".env.development")
+	} else {
+		envFiles = append(envFiles, ".env")
+	}
+
+	// Load base .env file
+	err := godotenv.Load(envFiles[0])
+	if err != nil {
+		logger.Error("Error loading .env file", zap.String("file", envFiles[0]), zap.Error(err))
+		return err
+	}
+	logger.Info("Using env file", zap.String("file", envFiles[0]))
+
+	// If in development, overload with .env.development
+	if len(envFiles) > 1 {
+		err = godotenv.Overload(envFiles[1])
+		if err != nil {
+			logger.Error("Error overloading .env file", zap.String("file", envFiles[1]), zap.Error(err))
+			return err
+		}
+		logger.Info("Overloading env file", zap.String("file", envFiles[1]))
+	}
+
+	return nil
+}
+
 func main() {
 	dir, _ := os.Getwd()
 	fmt.Println("Current directory is:", dir)
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
+	loadEnvFile(logger)
 
 	auth.InitializeSpotifyOauthConfig(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"), os.Getenv("SPOTIFY_REDIRECT_CALLBACK_URL"), []string{"user-read-email"})
 	apiMux := http.NewServeMux()
