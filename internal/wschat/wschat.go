@@ -27,8 +27,6 @@ var connectionsMutex sync.Mutex
 // InitializeWebSocket initializes the WebSocket server and returns the http.HandlerFunc
 func InitializeWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// ... (your existing code)
-
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Printf("Upgrade error: %v", err)
@@ -42,8 +40,12 @@ func InitializeWebSocket() http.HandlerFunc {
 			http.Error(w, "Malformed URL", http.StatusBadRequest)
 			return
 		}
+		log.Printf("parts looks like %v", parts)
 		conversationId := parts[3]
+		log.Printf("connecting to conversation %s", conversationId)
+		connectionsMutex.Lock()
 		connections[conversationId] = append(connections[conversationId], ws)
+		connectionsMutex.Unlock()
 
 		go func() {
 			for {
