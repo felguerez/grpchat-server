@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"github.com/felguerez/grpchat/internal/db"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 var upgrader = websocket.Upgrader{
@@ -20,6 +22,7 @@ var upgrader = websocket.Upgrader{
 }
 
 var connections = make(map[string][]*websocket.Conn)
+var connectionsMutex sync.Mutex
 
 // InitializeWebSocket initializes the WebSocket server and returns the http.HandlerFunc
 func InitializeWebSocket() http.HandlerFunc {
@@ -67,15 +70,24 @@ func broadcastMessage(message db.Message) {
 	}
 }
 
-func BroadcastMessageToWebSockets(message db.Message) {
-	fmt.Printf("ConversationID: %s\n", message.ConversationID)
-	fmt.Printf("connection count: %d\n", len(connections))
-	fmt.Printf("connections to conversationId: %d\n", len(connections[message.ConversationID]))
-	for _, conn := range connections[message.ConversationID] {
+func BroadcastMessageToWebSockets(message db.Message, logger *zap.Logger) {
+	connectionsMutex.Lock()
+	defer connectionsMutex.Unlock()
+
+	logger.Info("Broadcasting to conversation ID: %s\n", zap.String("conversationID", message.ConversationID))
+	logger.Info("Total connections: %d\n", zap.Int("connections length", len(connections)))
+	logger.Info("Connections to conversation ID %s: %d\n", zap.String("ConversationID", message.ConversationID), zap.Int("connections length", len(connections[message.ConversationID])))
+	logger.Info("My message is", zap.Any("message", message))
+
+	// Iterate over a copy of the slice to prevent issues if removeConnection modifies the original slice.
+	connectionsCopy := make([]*websocket.Conn, len(connections[message.ConversationID]))
+	copy(connectionsCopy, connections[message.ConversationID])
+
+	for _, conn := range connectionsCopy {
 		if err := conn.WriteJSON(message); err != nil {
-			log.Printf("Error sending message: %v", err)
-			conn.Close()
-			removeConnection(message.ConversationID, conn)
+			log.Printf("Error sending message to conversation ID %s: %v", message.ConversationID, err)
+			conn.Close()                                   // Close the connection on error.
+			removeConnection(message.ConversationID, conn) // Safely remove the connection.
 		}
 	}
 }
