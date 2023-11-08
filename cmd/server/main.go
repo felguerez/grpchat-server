@@ -76,7 +76,7 @@ func main() {
 	http.Handle("/api/", LoggingMiddleware(http.StripPrefix("/api", handlers.RequireAuthorizationToken(apiMux))))
 	http.Handle("/login", LoggingMiddleware(handlers.HandleLogin(logger)))
 	http.Handle("/callback", LoggingMiddleware(handlers.HandleCallback(logger)))
-	http.HandleFunc("/api/conversations/", wschat.InitializeWebSocket())
+	http.HandleFunc("/api/conversations/", wschat.InitializeWebSocket(logger))
 
 	httpPort := "8080"
 	go func() {

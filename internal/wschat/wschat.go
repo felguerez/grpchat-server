@@ -25,24 +25,24 @@ var connections = make(map[string][]*websocket.Conn)
 var connectionsMutex sync.Mutex
 
 // InitializeWebSocket initializes the WebSocket server and returns the http.HandlerFunc
-func InitializeWebSocket() http.HandlerFunc {
+func InitializeWebSocket(logger *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Printf("Upgrade error: %v", err)
+			logger.Info("Upgrade error: ", zap.Error(err))
 			return
 		}
-		log.Println("WebSocket upgraded")
+		logger.Info("WebSocket upgraded")
 
-		log.Printf("WebSocket connection established")
+		logger.Info("WebSocket connection established")
 		parts := strings.Split(r.URL.Path, "/")
 		if len(parts) < 4 {
 			http.Error(w, "Malformed URL", http.StatusBadRequest)
 			return
 		}
-		log.Printf("parts looks like %v", parts)
+		logger.Info("parts looks like", zap.Any("parts", parts))
 		conversationId := parts[3]
-		log.Printf("connecting to conversation %s", conversationId)
+		logger.Info("connecting to conversation %s", zap.String("conversationId", conversationId))
 		connectionsMutex.Lock()
 		connections[conversationId] = append(connections[conversationId], ws)
 		connectionsMutex.Unlock()
@@ -50,22 +50,22 @@ func InitializeWebSocket() http.HandlerFunc {
 		go func() {
 			for {
 				var message db.Message
-				fmt.Printf("message is %v", message)
+				logger.Info("&message is %v", zap.Any("&message", &message))
 				err := ws.ReadJSON(&message)
 				if err != nil {
-					log.Printf("Error reading JSON: %v", err)
+					logger.Error("Error reading JSON", zap.Error(err))
 					break
 				}
-				broadcastMessage(message)
+				broadcastMessage(message, logger)
 			}
 		}()
 	}
 }
 
-func broadcastMessage(message db.Message) {
+func broadcastMessage(message db.Message, logger *zap.Logger) {
 	for _, conn := range connections[message.ConversationID] {
 		if err := conn.WriteJSON(message); err != nil {
-			log.Printf("Error sending message: %v", err)
+			logger.Error("Error sending message: %v", zap.Error(err))
 			conn.Close()
 			removeConnection(message.ConversationID, conn)
 		}
