@@ -50,7 +50,6 @@ func InitializeWebSocket(logger *zap.Logger) http.HandlerFunc {
 		go func() {
 			for {
 				var message db.Message
-				logger.Info("&message is %v", zap.Any("&message", &message))
 				err := ws.ReadJSON(&message)
 				if err != nil {
 					logger.Error("Error reading JSON", zap.Error(err))
