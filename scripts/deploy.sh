@@ -1,29 +1,24 @@
 #!/bin/bash
 
+# Assign the first argument to a variable
+SERVICE_TYPE=$1
+
+# Check if the service type argument is provided and is valid
+if [[ -z "$SERVICE_TYPE" ]] || { [ "$SERVICE_TYPE" != "http" ] && [ "$SERVICE_TYPE" != "grpc" ]; }; then
+    echo "Usage: $0 <http|grpc>"
+    exit 1
+fi
+
+# Set variables
 CLUSTER_NAME="grpchat-grpc-cluster"
-HTTP_SERVICE="grpchat-http"
-GRPC_SERVICE="grpchat-grpc"
-ECR_REPO="413025517373.dkr.ecr.us-east-1.amazonaws.com"
-PROJECT_ROOT_DIR="$(dirname "$0")/.."  # This gets the parent directory of the script location
 
-echo "Project directory is $PROJECT_ROOT_DIR"
+# Deploy the specified service
+if [ "$SERVICE_TYPE" = "http" ]; then
+    SERVICE="grpchat-http"
+else
+    SERVICE="grpchat-grpc"
+fi
 
-# login
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REPO
+aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE --force-new-deployment
 
-cd "$PROJECT_ROOT_DIR" || ..
-
-# Build, tag, and push for grpchat-http service
-docker build -t $HTTP_SERVICE -f Dockerfile.http .
-docker tag $HTTP_SERVICE:latest $ECR_REPO/$HTTP_SERVICE:latest
-docker push $ECR_REPO/$HTTP_SERVICE:latest
-
-# Build, tag, and push for grpchat-grpc service
-docker build -t ${GRPC_SERVICE} -f Dockerfile.grpc .
-docker tag ${GRPC_SERVICE}:latest ${ECR_REPO}/${GRPC_SERVICE}:latest
-docker push ${ECR_REPO}/${GRPC_SERVICE}:latest
-
-echo "Deployment complete."
-
-aws ecs update-service --cluster $CLUSTER_NAME --service $HTTP_SERVICE --force-new-deployment
-aws ecs update-service --cluster $CLUSTER_NAME --service $GRPC_SERVICE --force-new-deployment
+echo "Deployment for $SERVICE_TYPE service initiated."
