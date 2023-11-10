@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 var upgrader = websocket.Upgrader{
@@ -80,17 +81,28 @@ func broadcastMessage(message db.Message, logger *zap.Logger) {
 func BroadcastMessageToWebSockets(message db.Message, logger *zap.Logger) {
 	connectionsMutex.Lock()
 	defer connectionsMutex.Unlock()
-
+	logger.Info("Preparing to broadcast message", zap.Time("timestamp", time.Now()), zap.Any("message", message), zap.String("method", "BroadcastMessageToWebSockets"))
 	connectionsCopy := make([]*wsutil.WebSocketConnection, len(connections[message.ConversationID]))
 	copy(connectionsCopy, connections[message.ConversationID])
 
 	for _, conn := range connectionsCopy {
-		if conn.IsOpen() { // Check if the connection is ready
-			if err := conn.Conn.WriteJSON(message); err != nil {
-				logger.Error("Error sending message", zap.String("message.ConversationID", message.ConversationID), zap.Error(err))
-				conn.Close()
-				removeConnection(message.ConversationID, conn)
-			}
+		logger.Info("Checking connection status before sending message", zap.String("conversationID", message.ConversationID))
+		if conn != nil && conn.IsOpen() {
+			logger.Info("Connection is open, attempting to send message", zap.String("conversationID", message.ConversationID))
+		} else {
+			logger.Info("Connection is not open, skipping", zap.String("conversationID", message.ConversationID))
+			continue
+		}
+
+		if err := conn.WriteJSON(message); err != nil {
+			logger.Error("Error sending message", zap.String("conversationID", message.ConversationID), zap.Time("timestamp", time.Now()),
+				zap.Error(err), zap.String("method", "BroadcastMessageToWebSockets"))
+			conn.Close() // Close the connection on error.
+			removeConnection(message.ConversationID, conn)
+			logger.Info("Connection closed and removed due to error", zap.Time("timestamp", time.Now()),
+				zap.String("conversationID", message.ConversationID), zap.String("method", "BroadcastMessageToWebSockets"))
+		} else {
+			logger.Info("Message sent successfully", zap.String("conversationID", message.ConversationID), zap.Time("timestamp", time.Now()), zap.String("method", "BroadcastMessageToWebSockets"))
 		}
 	}
 }

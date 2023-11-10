@@ -151,7 +151,8 @@ func convertToProtoConversations(conversations []db.Conversation) []*chat.Conver
 
 func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 	logger, _ := zap.NewProduction()
-	logger.Info("Received ChatStream request")
+	logger.Info("Received ChatStream request", zap.Time("timestamp", time.Now()),
+		zap.String("method", "ChatStream"))
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -175,7 +176,8 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 			fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
 			return err
 		}
-		logger.Info("Time to broadcast")
+		logger.Info("Time to broadcast", zap.Time("timestamp", time.Now()),
+			zap.String("method", "ChatStream"))
 		wschat.BroadcastMessageToWebSockets(message, logger)
 
 		// Send a message back to the client
