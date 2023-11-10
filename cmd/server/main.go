@@ -62,8 +62,6 @@ func loadEnvFile(logger *zap.Logger) error {
 }
 
 func main() {
-	dir, _ := os.Getwd()
-	fmt.Println("Current directory is:", dir)
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 	loadEnvFile(logger)
