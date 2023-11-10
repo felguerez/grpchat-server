@@ -12,7 +12,7 @@
           "awslogs-stream-prefix": "ecs"
         }
       },
-      "image": "413025517373.dkr.ecr.us-east-1.amazonaws.com/grpchat-http:f0ab9e9",
+      "image": "413025517373.dkr.ecr.us-east-1.amazonaws.com/grpchat-http:b23f9b6",
       "cpu": 256,
       "memory": 512,
       "essential": true,
