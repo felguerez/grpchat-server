@@ -10,8 +10,6 @@ SERVICE_TYPE=$1
 ECR_REPO="413025517373.dkr.ecr.us-east-1.amazonaws.com"
 PROJECT_ROOT_DIR="$(dirname "$0")/.."  # Assumes the script is in a subdirectory of the project
 
-echo "Project directory is $PROJECT_ROOT_DIR"
-
 # Fetch the latest git commit hash
 GIT_COMMIT_HASH=$(git -C "$PROJECT_ROOT_DIR" rev-parse --short HEAD)
 if [ -z "$GIT_COMMIT_HASH" ]; then

@@ -1,7 +1,9 @@
 {
   "family": "grpchat-grpc-service",
   "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "arn:aws:iam::413025517373:role/GrpChatGRPCEcsExecutionRole",
@@ -16,7 +18,7 @@
           "awslogs-stream-prefix": "ecs"
         }
       },
-      "image": "413025517373.dkr.ecr.us-east-1.amazonaws.com/grpchat-grpc:latest",
+      "image": "413025517373.dkr.ecr.us-east-1.amazonaws.com/grpchat-grpc:0157ae0",
       "memory": 512,
       "cpu": 256,
       "essential": true,
