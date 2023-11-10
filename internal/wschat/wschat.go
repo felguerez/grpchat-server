@@ -1,7 +1,6 @@
 package wschat
 
 import (
-	"fmt"
 	"github.com/felguerez/grpchat/internal/db"
 	"github.com/felguerez/grpchat/internal/wsutil" // Ensure this path is correct
 	"github.com/gorilla/websocket"
@@ -16,7 +15,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		fmt.Printf("origin: %s\n", r.Header.Get("Origin"))
+		//fmt.Printf("origin: %s\n", r.Header.Get("Origin"))
 		return true
 	},
 }
