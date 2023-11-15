@@ -1,6 +1,7 @@
 package wschat
 
 import (
+	"bytes"
 	"github.com/felguerez/grpchat/internal/db"
 	"github.com/felguerez/grpchat/internal/wsutil" // Ensure this path is correct
 	"github.com/gorilla/websocket"
@@ -11,6 +12,10 @@ import (
 	"time"
 )
 
+var (
+	newline = []byte{'\n'}
+	space   = []byte{' '}
+)
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -44,16 +49,32 @@ func InitializeWebSocket(logger *zap.Logger) http.HandlerFunc {
 		connections[conversationId] = append(connections[conversationId], wrappedConnection)
 		connectionsMutex.Unlock()
 
-		go handleWebSocketConnection(wrappedConnection, conversationId, logger)
+		go alsoHandleWebSocketConnection(wrappedConnection, conversationId, logger)
 	}
+}
+
+func alsoHandleWebSocketConnection(conn *wsutil.WebSocketConnection, conversationId string, logger *zap.Logger) {
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				logger.Error("Error reading message", zap.Error(err))
+			}
+			break
+		}
+		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		broadcastMessage(db.Message{Content: string(message), ConversationID: conversationId}, logger)
+	}
+	removeConnection(conversationId, conn) // Remove connection when done
 }
 
 func handleWebSocketConnection(conn *wsutil.WebSocketConnection, conversationId string, logger *zap.Logger) {
 	for {
 		var message db.Message
+		logger.Info("Message received", zap.Time("timestamp", time.Now()), zap.Any("message", message), zap.String("method", "handleWebSocketConnection"))
 		err := conn.Conn.ReadJSON(&message) // Use conn.Conn to access the underlying WebSocket
 		if err != nil {
-			logger.Error("Error reading JSON", zap.Error(err))
+			logger.Error("Error reading JSON", zap.Error(err), zap.String("method", "handleWebSocketConnection"), zap.Time("timestamp", time.Now()), zap.Any("message", message))
 			break
 		}
 		broadcastMessage(message, logger)
