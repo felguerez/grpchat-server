@@ -4,4 +4,5 @@
 main
 */.DS_Store
 temp.*
-deploy/**/*
+deploy/ecs/ecs-task-definition-grpc.json
+deploy/ecs/ecs-task-definition-http.json
