@@ -14,6 +14,7 @@ import (
 
 type Server struct {
 	chat.UnimplementedChatServiceServer
+	Logger *zap.Logger
 }
 
 func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) (*chat.SendMessageResponse, error) {
@@ -23,12 +24,11 @@ func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) 
 		ConversationID: req.ConversationId,
 		Timestamp:      time.Now().Unix(),
 	}
-	fmt.Println("Received Message:")
-	fmt.Println(message)
+	s.Logger.Info("Received Message:", zap.Any("message", message))
 	err := db.PutMessage(message)
 	if err != nil {
-		fmt.Println("damn")
-		fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
+		s.Logger.Info("damn")
+		s.Logger.Error("Error putting message", zap.Error(err))
 		return nil, err
 	}
 
@@ -49,8 +49,7 @@ func (s *Server) JoinConversation(ctx context.Context, req *chat.JoinConversatio
 }
 
 func (s *Server) CreateConversation(ctx context.Context, req *chat.CreateConversationRequest) (*chat.CreateConversationResponse, error) {
-	logger, _ := zap.NewProduction()
-	logger.Info("Received CreateConversation request", zap.Any("request", req))
+	s.Logger.Info("Received CreateConversation request", zap.Any("request", req))
 	currentTime := time.Now().Unix()
 	conversation := db.Conversation{
 		ID:        uuid.New().String(),
@@ -60,13 +59,10 @@ func (s *Server) CreateConversation(ctx context.Context, req *chat.CreateConvers
 		CreatedBy: req.OwnerId,
 		Members:   []string{req.OwnerId},
 	}
-
-	fmt.Println("Received Conversation:")
-	fmt.Println(conversation)
+	s.Logger.Info("Received Conversation:", zap.Any("conversation", conversation))
 	err := db.PutConversation(conversation)
 	if err != nil {
-		fmt.Println("Error occurred:")
-		fmt.Println(fmt.Sprintf("Error when putting conversation: %s", err.Error()))
+		s.Logger.Error("Error occurred:", zap.Error(err))
 		return nil, err
 	}
 	return &chat.CreateConversationResponse{ConversationId: conversation.ID}, nil
@@ -82,7 +78,9 @@ func (s *Server) GetConversation(ctx context.Context, req *chat.GetConversationR
 	}
 
 	protoConversation := convertToProtoConversation(conversation)
-	protoMessages := convertToProtoMessages(messages) // You'll need to implement this function
+	protoMessages := convertToProtoMessages(messages)
+	s.Logger.Info("Returning conversation", zap.Any("conversation", protoConversation))
+	s.Logger.Info("Returning messages", zap.Any("messages", protoMessages))
 
 	return &chat.GetConversationResponse{
 		Conversation: protoConversation,
@@ -150,8 +148,7 @@ func convertToProtoConversations(conversations []db.Conversation) []*chat.Conver
 }
 
 func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
-	logger, _ := zap.NewProduction()
-	logger.Info("Received ChatStream request", zap.Time("timestamp", time.Now()),
+	s.Logger.Info("<------ Received ChatStream request", zap.Time("timestamp", time.Now()),
 		zap.String("method", "ChatStream"))
 	for {
 		req, err := stream.Recv()
@@ -168,17 +165,16 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 			ConversationID: req.ConversationId,
 			Timestamp:      time.Now().Unix(),
 		}
-		logger.Info("Received Message from ChatStream:", zap.Any("message", message))
-		fmt.Println(message)
+		s.Logger.Info("Received Message from ChatStream:", zap.Any("message", message))
 		err = db.PutMessage(message)
 		if err != nil {
-			fmt.Println("damn")
-			fmt.Sprintf("Uh oh an error when putting message: %s", err.Error())
+			s.Logger.Info("damn")
+			s.Logger.Error("Error putting message", zap.Error(err))
 			return err
 		}
-		logger.Info("Time to broadcast", zap.Time("timestamp", time.Now()),
+		s.Logger.Info("Time to broadcast", zap.Time("timestamp", time.Now()),
 			zap.String("method", "ChatStream"))
-		wschat.BroadcastMessageToWebSockets(message, logger)
+		wschat.BroadcastMessageToWebSockets(message, s.Logger)
 
 		// Send a message back to the client
 		if err := stream.Send(&chat.SendMessageRequest{

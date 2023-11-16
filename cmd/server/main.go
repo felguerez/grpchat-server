@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/felguerez/grpchat/internal/auth"
 	"github.com/felguerez/grpchat/internal/chat"
@@ -61,6 +62,22 @@ func loadEnvFile(logger *zap.Logger) error {
 	return nil
 }
 
+func loggingInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		// Log the incoming request
+		logger.Info("gRPC request", zap.String("method", info.FullMethod), zap.Any("request", req))
+		// Handle the request
+		resp, err = handler(ctx, req)
+		// Log the response or error
+		if err != nil {
+			logger.Error("gRPC error", zap.Error(err))
+		} else {
+			logger.Info("gRPC response", zap.Any("response", resp))
+		}
+		return resp, err
+	}
+}
+
 func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
@@ -86,8 +103,13 @@ func main() {
 		}
 	}()
 
-	grpcServer := grpc.NewServer()
-	chatpb.RegisterChatServiceServer(grpcServer, &chat.Server{})
+	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(loggingInterceptor(logger)),
+	}
+
+	grpcServer := grpc.NewServer(opts...)
+	chatService := &chat.Server{Logger: logger}
+	chatpb.RegisterChatServiceServer(grpcServer, chatService)
 	reflection.Register(grpcServer)
 
 	grpcPort := "50051"
