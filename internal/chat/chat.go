@@ -15,6 +15,7 @@ import (
 type Server struct {
 	chat.UnimplementedChatServiceServer
 	Logger *zap.Logger
+	Hub    *wschat.Hub
 }
 
 func (s *Server) SendMessage(ctx context.Context, req *chat.SendMessageRequest) (*chat.SendMessageResponse, error) {
@@ -174,7 +175,8 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 		}
 		s.Logger.Info("Time to broadcast", zap.Time("timestamp", time.Now()),
 			zap.String("method", "ChatStream"))
-		wschat.BroadcastMessageToWebSockets(message, s.Logger)
+		convertedMessage := convertMessageForWebSocket(message)
+		s.Hub.Broadcast <- convertedMessage
 
 		// Send a message back to the client
 		if err := stream.Send(&chat.SendMessageRequest{
@@ -185,4 +187,8 @@ func (s *Server) ChatStream(stream chat.ChatService_ChatStreamServer) error {
 			return err
 		}
 	}
+}
+
+func convertMessageForWebSocket(message db.Message) []byte {
+	return []byte(fmt.Sprintf(`{"userId": "%s", "content": "%s", "conversationId": "%s"}`, message.UserID, message.Content, message.ConversationID))
 }
