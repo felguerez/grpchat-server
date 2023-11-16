@@ -34,7 +34,7 @@ if [ $? -ne 0 ]; then
     print_message "31" "❌ Update ECS task definition for $SERVICE_TYPE failed."
     exit 1
 fi
-print_message "32" "✅ ECS task definition for $SERVICE_LABEL} updated."
+print_message "32" "✅ ECS task definition for $SERVICE_LABEL updated."
 
 # Step 3: Deploy the new version to ECS
 print_message "34" "🚀 Initiating deployment for $SERVICE_LABEL..."
