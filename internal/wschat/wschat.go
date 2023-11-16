@@ -12,6 +12,87 @@ import (
 	"time"
 )
 
+const (
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = (pongWait * 9) / 10
+	maxMessageSize = 512
+)
+
+type Client struct {
+	hub  *Hub
+	conn *wsutil.WebSocketConnection
+	send chan []byte
+}
+
+func (c *Client) readPump() {
+	defer func() {
+		c.hub.unregister <- c
+		c.conn.Close()
+	}()
+	c.conn.Conn.SetReadLimit(maxMessageSize)
+	c.conn.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.Conn.SetPongHandler(func(string) error { c.conn.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	for {
+		_, message, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				c.hub.logger.Error("Error reading message", zap.Error(err))
+			}
+			break
+		}
+		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		c.hub.broadcast <- message
+	}
+}
+
+func (c *Client) writePump() {
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
+	for {
+		select {
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				c.hub.logger.Error("Error writing message", zap.Any("message", message), zap.String("method", "writePump"), zap.Time("timestamp", time.Now()), zap.Any("message", message))
+				return
+			}
+			w, err := c.conn.NextWriter(websocket.TextMessage)
+			if err != nil {
+				return
+			}
+			w.Write(message)
+		// Add queued messages to the current ws message
+		// @TODO: handle errors below
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				c.hub.logger.Error("Error writing message", zap.Error(err), zap.String("method", "writePump"), zap.Time("timestamp", time.Now()))
+				return
+			}
+		}
+	}
+}
+
+func ServeWebSocketConnection(hub *Hub) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			// @TODO: handle error
+			return
+		}
+		hub.logger.Info("WebSocket upgraded")
+		client := &Client{hub: hub, conn: wsutil.NewWebSocketConnection(conn), send: make(chan []byte, 256)}
+		client.hub.register <- client
+		go client.writePump()
+		go client.readPump()
+	}
+}
+
 var (
 	newline = []byte{'\n'}
 	space   = []byte{' '}

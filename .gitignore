@@ -4,4 +4,4 @@
 main
 */.DS_Store
 temp.*
-deploy/*
+deploy/**/*
